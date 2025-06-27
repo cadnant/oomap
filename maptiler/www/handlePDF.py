@@ -318,7 +318,7 @@ def createImage(path, fileformat):
     #magn = p.get('magn', '0') #set "magnetic N" through URL for testing
     magn = str(magdec*math.pi/180) #magnetic N, in radians.  Rotate the map data this much before rendering to align patterns to mag N
     insertstring="%settings;\n<!ENTITY prefix \"" + tmpid + "\">" + \
-        "\n<!ENTITY driveway \"" + driveway_colour + "\">" + \
+        "\n<!ENTITY driveway \"" + ("yes" if p.get('drives',"yes") != "no" else "no") + "\">" + \
         "\n<!ENTITY rail \"" + ("yes" if p.get('rail',"yes") != "no" else "no") + "\">" + \
         "\n<!ENTITY walls \"" + ("yes" if p.get('walls',"yes") != "no" else "no") + "\">" + \
         "\n<!ENTITY trees \"" + ("yes" if p.get('trees',"yes") != "no" else "no") + "\">" + \

@@ -10,7 +10,7 @@ import VectorLayer from 'ol/layer/Vector';
 import ImageLayer from 'ol/layer/Image';
 import VectorSource from 'ol/source/Vector';
 import Feature from 'ol/Feature';
-import { OSM, XYZ, BingMaps } from 'ol/source';
+import { OSM, XYZ} from 'ol/source';
 import Select from 'ol/interaction/Select';
 import { Fill, Stroke, Style, Text, Circle, RegularShape } from 'ol/style';
 import { Control, ScaleLine, defaults as defaultControls } from 'ol/control';
@@ -1515,11 +1515,10 @@ function init() {
 function toggleSatellite() {
 	if (!layerSatellite.getVisible() && state == "addcontrols") {
 		layerSatellite.setSource(
-			new BingMaps({
-				key: 'AqrZ3qN2WiRrmKnieQHkNHoR4AD_7ISxbjJLs8LR_YqRcSf1bOZSQTxBG2fKQ0cO',
-				imagerySet: 'Aerial',
-				// maxZoom: 19
-			})
+			new XYZ({
+				url: `azure/map/tile?api-version=2.0&tilesetId=microsoft.imagery&zoom={z}&x={x}&y={y}&tileSize=256`,
+				attributions: `© ${new Date().getFullYear()} TomTom, Microsoft`
+			  })
 		);
 		layerSatellite.setExtent(layerMapSheet.getSource().getExtent());
 		layerSatellite.setVisible(true);
@@ -2389,17 +2388,21 @@ function generateKML() {
 }
 
 function XMLposition(control) {
+	var type;
 	var num;
 	if (control.type == 'c_startfinish') {
 		num = control.id;
+		type = "Start";
 	}
 	else if (control.type == 'c_finish') {
 		num = control.id;
+		type = "Finish";
 	}
 	else {
 		num = control.number;
+		type = "Control";
 	}
-	return '<Control>\n<Id>' + num + '</Id>\n' +
+	return '<Control type="' + type + '">\n<Id>' + num + '</Id>\n' +
 		'<Position lat="' + control.wgs84lat + '" lng="' + control.wgs84lon + '"/>\n</Control>\n';
 }
 function XMLorder(control) {

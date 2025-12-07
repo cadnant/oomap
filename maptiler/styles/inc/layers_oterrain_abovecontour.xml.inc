@@ -1,13 +1,3 @@
-<Layer name="line features" status="on" srs="&srs900913;">
-    <StyleName>cliffs</StyleName>
-    <Datasource>
-        &datasource-settings;
-        <Parameter name="table">
-            (select ST_Rotate(ST_Intersection(way, &box3857;),&magn;, ST_Centroid(&box3857;)) as way,barrier,"natural",man_made from &prefix;_line where barrier is not null or "natural" in ('hedge','cliff') or man_made='embankment') as roads
-        </Parameter>
-    </Datasource>
-</Layer>
-
 <Layer name="bridges" status="on" srs="&srs900913;">
     <StyleName>bridges-casing</StyleName>
     <StyleName>bridges-core</StyleName>

@@ -329,6 +329,7 @@ def createImage(path, fileformat):
         "\n<!ENTITY schools \"" + ("yes" if p.get('schools',"no") != "no" else "no") + "\">" + \
         "\n<!ENTITY privroads \"" + ("yes" if p.get('privroads',"yes") != "no" else "no") + "\">" + \
         "\n<!ENTITY buildings \"" + ("yes" if p.get('buildings',"yes") != "no" else "no") + "\">" + \
+        "\n<!ENTITY benches \"" + ("yes" if p.get('benches',"yes") != "no" else "no") + "\">" + \
         "\n<!ENTITY lidartable \"" + contour_table + "\">" + \
         "\n<!ENTITY contourSeparation \"" + p['interval'] + "\">" + \
         "\n<!ENTITY layers-contours SYSTEM \"inc/layers_contours_" + p['contour'] + ".xml.inc\">" + \
@@ -421,9 +422,7 @@ def createImage(path, fileformat):
     ctx.translate(MAP_W*S2P/2,MAP_H*S2P/2) # translate origin to the center
     ctx.rotate(rotation+float(magn))
     ctx.translate(-EXTENT_W*S2P/2,-EXTENT_H*S2P/2)
-
     mapnik.render(map, ctx, SCALE_FACTOR, 0, 0)
-
     ctx.restore()
 
     if style == "adhoc":
@@ -453,16 +452,22 @@ def createImage(path, fileformat):
             ctx.line_to (line - shift, MAP_H * S2P)
         ctx.stroke()
 
-    # Start control
-    if slon != 0 and slat != 0:
-        ctx = cairo.Context(surface)
-        ctx.set_operator(cairo.Operator.MULTIPLY)
-        ctx.set_source_rgb(*purpleTuple)
-        ctx.translate(MAP_WM*S2P + MAP_W*S2P/2,MAP_NM*S2P + MAP_H*S2P/2) # translate origin to the center
-        ctx.rotate(rotation)    # rotate map to correct angle
-        ctx.translate(-EXTENT_W*S2P/2,-EXTENT_H*S2P/2)  # set origin to NW corner
-        ctx.set_line_width(SC_T*S2P)
+    halo = p.get('halo', 'no')
+
+    ctx = cairo.Context(surface)
+    ctx.translate(MAP_WM*S2P + MAP_W*S2P/2,MAP_NM*S2P + MAP_H*S2P/2) # translate origin to the center
+    ctx.rotate(rotation)    # rotate map to correct angle
+    ctx.translate(-EXTENT_W*S2P/2,-EXTENT_H*S2P/2)  # set origin to NW corner
+    ctx.select_font_face("Arial", cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_NORMAL)
+    ctx.set_font_size(CTEXT_S*S2P)
+    
+    #start and finish halos, if selected
+    if slon != 0 and slat != 0 and halo == "yes":
+        ctx.set_line_width(SC_T*S2P * 1.5)
         ctx.set_line_join(cairo.LINE_JOIN_ROUND)
+        ctx.set_source_rgb(1,1,1)
+        ctx.set_operator(cairo.Operator.SOURCE)
+        ctx.save()
         ctx.translate((slon-mapWLon)*EXTENT_W*S2P/(mapELon-mapWLon), (mapNLat-slat)*EXTENT_H*S2P/(mapNLat-mapSLat))
         startRot = 0   #rotation of start triangle - if linear course and at least 1 control
         if len(controlsArr) > 0 and p.get('linear',"no") != "no":
@@ -472,32 +477,22 @@ def createImage(path, fileformat):
         ctx.rel_line_to(-0.5*SC_W*S2P, 0.866*SC_W*S2P)
         ctx.rel_line_to(SC_W*S2P, 0)
         ctx.close_path()
-        ctx.stroke()
         ctx.rotate(-startRot)
         #Finish control (same place as start, unless separate finish coords)
         if flon != 0 and flat != 0:
             ctx.rotate(rotation)
             ctx.translate((flon-slon)*EXTENT_W*S2P/(mapELon-mapWLon), (slat-flat)*EXTENT_H*S2P/(mapNLat-mapSLat))
-        ctx.set_line_width(C_T*S2P)
+        ctx.new_sub_path()
         ctx.arc(0, 0, C_R*S2P*1.2, 0, 2*math.pi)    #Outer circle
-        ctx.stroke()
+        ctx.new_sub_path()
         ctx.arc(0, 0, C_R*S2P*0.8, 0, 2*math.pi)    #inner circle
-        ctx.stroke()
+        ctx.stroke()   
+        ctx.restore() 
 
-    ctx = cairo.Context(surface)
-    ctx.translate(MAP_WM*S2P + MAP_W*S2P/2,MAP_NM*S2P + MAP_H*S2P/2) # translate origin to the center
-    ctx.rotate(rotation)
-    ctx.translate(-EXTENT_W*S2P/2,-EXTENT_H*S2P/2)
-
-    # Controls and labels
+    # Control (if selected) and label halos
     if len(controlsArr) > 0:
-
-        ctx.select_font_face("Arial", cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_NORMAL)
-        ctx.set_font_size(CTEXT_S*S2P)
         numControls = len(controlsArr)//4
         #Draw white halo around control numbers for legibility on complex maps
-        ctx.set_operator(cairo.Operator.SOURCE)
-        ctx.set_source_rgb(1, 0.997, 1)
         for i in range(numControls):
             text = controlsArr[4*i]
             labelAngle = float(controlsArr[4*i+1])
@@ -505,6 +500,15 @@ def createImage(path, fileformat):
             controllon = float(controlsArr[4*i+3])
             controllatP = (mapNLat-controllat)*EXTENT_H/(mapNLat-mapSLat)
             controllonP = (controllon-mapWLon)*EXTENT_W/(mapELon-mapWLon)
+            if halo == "yes":   #also add halo around control circles (but not centre dot)
+                ctx.move_to((controllonP+C_R)*S2P, controllatP*S2P)
+                ctx.set_line_width(C_T*S2P*1.5)
+                ctx.arc(controllonP*S2P, controllatP*S2P, C_R*S2P, 0, 2*math.pi)
+                ctx.stroke()
+                ctx.move_to((controllonP+CDOT_R)*S2P, controllatP*S2P)
+                #no halos around center dots
+                #ctx.arc(controllonP*S2P, controllatP*S2P, CDOT_R*S2P, 0, 2*math.pi)
+                #ctx.fill()
             x_bearing, y_bearing, width, height, x_advance, y_advance = ctx.text_extents(text)
             labelX = C_R*2.5*math.sin(math.pi*labelAngle/180 + rotation)
             labelY = C_R*2.5*math.cos(math.pi*labelAngle/180 + rotation)
@@ -518,6 +522,38 @@ def createImage(path, fileformat):
             ctx.fill()
             ctx.restore()
 
+    #Now the purple overlay - starting with start/finish
+    if slon != 0 and slat != 0:
+        ctx.save()
+        ctx.set_line_width(SC_T*S2P)
+        ctx.set_line_join(cairo.LINE_JOIN_ROUND)
+        ctx.set_source_rgb(*purpleTuple)
+        ctx.set_operator(cairo.Operator.MULTIPLY)
+        ctx.translate((slon-mapWLon)*EXTENT_W*S2P/(mapELon-mapWLon), (mapNLat-slat)*EXTENT_H*S2P/(mapNLat-mapSLat))
+        startRot = 0   #rotation of start triangle - if linear course and at least 1 control
+        if len(controlsArr) > 0 and p.get('linear',"no") != "no":
+            startRot = math.atan2(slat - float(controlsArr[2]), float(controlsArr[3]) - slon) - math.pi/6 + rotation
+        ctx.rotate(startRot-rotation)
+        ctx.move_to(0, -0.577*SC_W*S2P)
+        ctx.rel_line_to(-0.5*SC_W*S2P, 0.866*SC_W*S2P)
+        ctx.rel_line_to(SC_W*S2P, 0)
+        ctx.close_path()
+        ctx.rotate(-startRot)
+        #Finish control (same place as start, unless separate finish coords)
+        if flon != 0 and flat != 0:
+            ctx.rotate(rotation)
+            ctx.translate((flon-slon)*EXTENT_W*S2P/(mapELon-mapWLon), (slat-flat)*EXTENT_H*S2P/(mapNLat-mapSLat))
+        ##ctx.set_line_width(C_T*S2P)
+        ctx.new_sub_path()
+        ctx.arc(0, 0, C_R*S2P*1.2, 0, 2*math.pi)    #Outer circle
+        ctx.new_sub_path()
+        ctx.arc(0, 0, C_R*S2P*0.8, 0, 2*math.pi)    #inner circle
+        #ctx.stroke()
+        ctx.restore()
+
+    # Controls and labels
+    if len(controlsArr) > 0:
+        numControls = len(controlsArr)//4
         ctx.set_source_rgb(*purpleTuple)
         ctx.set_operator(cairo.Operator.MULTIPLY)
         lastlonP = (slon-mapWLon)*EXTENT_W/(mapELon-mapWLon)
@@ -531,11 +567,13 @@ def createImage(path, fileformat):
             controllonP = (controllon-mapWLon)*EXTENT_W/(mapELon-mapWLon)
             ctx.move_to((controllonP+C_R)*S2P, controllatP*S2P)
             ctx.set_line_width(C_T*S2P)
+            ctx.new_sub_path()
             ctx.arc(controllonP*S2P, controllatP*S2P, C_R*S2P, 0, 2*math.pi)
-            ctx.stroke()
             ctx.move_to((controllonP+CDOT_R)*S2P, controllatP*S2P)
-            ctx.arc(controllonP*S2P, controllatP*S2P, CDOT_R*S2P, 0, 2*math.pi)
-            ctx.fill()
+            ctx.new_sub_path()
+            #ctx.arc(controllonP*S2P, controllatP*S2P, CDOT_R*S2P*0.75, 0, 2*math.pi)
+            ctx.arc(controllonP*S2P, controllatP*S2P, CDOT_R*S2P*0.5, 0, 2*math.pi)
+            ctx.stroke()
             if p.get('linear',"no") != "no":
                 dist = ((lastlonP - controllonP)**2 + (lastlatP - controllatP)**2)**0.5
                 if dist > 2 * C_R:  # only draw a line if controls are > 2 circle radii apart.
@@ -558,6 +596,7 @@ def createImage(path, fileformat):
             ctx.move_to(labelX*S2P-(width/2 + x_bearing), -labelY*S2P+(height/2))
             ctx.show_text(text)
             ctx.restore()
+            
         # draw line from last control to finish
         if p.get('linear',"no") != "no":
             controllatP = (mapNLat-flat)*EXTENT_H/(mapNLat-mapSLat)

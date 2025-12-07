@@ -438,18 +438,18 @@
     <Rule>
         &maxscale_zoom15;
         &minscale_zoom15;
-        <Filter>[amenity]='bench' or [leisure]='picnic_table' or [amenity]='waste_basket' or [amenity]='recycling'</Filter>
+        <Filter>&benches; = 'yes' and ([amenity]='bench' or [leisure]='picnic_table' or [amenity]='waste_basket' or [amenity]='recycling')</Filter>
         <PointSymbolizer file="&symbols;/cross.svg" allow-overlap="true" transform="scale(0.5,0.5)" />
     </Rule>
     <Rule>
         &maxscale_zoom16;
         &minscale_zoom16;
-        <Filter>[amenity]='bench' or [leisure]='picnic_table' or [amenity]='waste_basket' or [amenity]='recycling'</Filter>
+        <Filter>&benches; = 'yes' and ([amenity]='bench' or [leisure]='picnic_table' or [amenity]='waste_basket' or [amenity]='recycling')</Filter>
         <PointSymbolizer file="&symbols;/cross.svg" allow-overlap="true" transform="scale(0.65,0.65)" />
     </Rule>
     <Rule>
         &maxscale_zoom17;
-        <Filter>[amenity]='bench' or [leisure]='picnic_table' or [amenity]='waste_basket' or [amenity]='recycling'</Filter>
+        <Filter>&benches; = 'yes' and ([amenity]='bench' or [leisure]='picnic_table' or [amenity]='waste_basket' or [amenity]='recycling')</Filter>
         <PointSymbolizer file="&symbols;/cross.svg" allow-overlap="true" transform="scale(0.8,0.8)" />
     </Rule>
 </Style>

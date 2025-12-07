@@ -102,6 +102,10 @@ var privroads = true;
 if (localStorage.getItem("privroads")) privroads = (localStorage.getItem("privroads")=="yes");
 var buildings = true;
 if (localStorage.getItem("buildings")) buildings = (localStorage.getItem("buildings")=="yes");
+var benches = true;
+if (localStorage.getItem("benches")) benches = (localStorage.getItem("benches")=="yes");
+var halo = false;
+if (localStorage.getItem("halo")) halo = (localStorage.getItem("halo")=="yes");
 var preview = false;
 var kmzOverlay = false;
 if (localStorage.getItem("kmzOverlay")) kmzOverlay = (localStorage.getItem("kmzOverlay")=="yes");
@@ -1158,8 +1162,12 @@ function init() {
 				localStorage.setItem("power", power ? "yes" : "no");
 				buildings = $('#buildings').is(':checked');
 				localStorage.setItem("buildings", buildings ? "yes" : "no");
+				benches = $('#benches').is(':checked');
+				localStorage.setItem("benches", benches ? "yes" : "no");
 				privroads = $('#privroads').is(':checked');
-				localStorage.setItem("privroads", power ? "yes" : "no");
+				localStorage.setItem("privroads", privroads ? "yes" : "no");
+				halo = $('#halo').is(':checked');
+				localStorage.setItem("halo", halo ? "yes" : "no");
 				overlayColour = $('#purple').val();
 				if (isNaN(parseInt(overlayColour, 16))) { overlayColour = 'A626FF'; }
 				localStorage.setItem("overlayColour", overlayColour);
@@ -1431,7 +1439,7 @@ function init() {
 			OK: function () {
 				var rVal = $("input[name='c_pois']:checked").val().split(",");
 				if (rVal[0] == 'custom') { //wrap key and value in single-quotes to allow e.g. colons in key
-					rVal = ["'" + $("input[name='poi_key']").val() + "'='" + $("input[name='poi_value']").val() + "'", $("input[name='poi_value']").val() + ': ', 'name', ''];
+					rVal = ["nwr['" + $("input[name='poi_key']").val() + "'='" + $("input[name='poi_value']").val() + "'] ", $("input[name='poi_value']").val() + ': ', 'name', ''];
 				}
 				//rVal = [key=value, description prefix, field for description, sort field]
 				rVal.push(parseInt($("input[name='poi_dist']").val()));
@@ -1774,6 +1782,8 @@ function handleAdvancedOptions(pid) {
 	$('#power').prop('checked', power);
 	$('#privroads').prop('checked', privroads);
 	$('#buildings').prop('checked', buildings);
+	$('#benches').prop('checked', benches);
+	$('#halo').prop('checked', halo);
 	$('#dpi').val(dpi);
 	$('#purple').val(overlayColour);
 	$("#advanced").dialog("open");
@@ -1862,10 +1872,10 @@ function validate() {
 	var validationMsg = "";
 
 	if (mapTitle == oom.defaultMapTitle) {
-		validationMsg += "Map title not changed from default.<br />";
+	//	validationMsg += "Map title not changed from default.<br />";
 	}
 	if (raceDescription == oom.defaultRaceDescription) {
-		validationMsg += "Race instructions not changed from default.<br />";
+	//	validationMsg += "Race instructions not changed from default.<br />";
 	}
 
 	var controls = getSortedControls('c_regular');
@@ -2258,7 +2268,7 @@ function getURL(type) {
 	var arr = site_href.split("/");
 	var url = arr[0] + "//" + arr[2] + "/render/" + type
 		+ "/?style=" + mapStyleID
-		+ "|paper=" + paper_pieces[$("#portrait").prop('checked')?1:0].toFixed(3) + "," + paper_pieces[$("#portrait").prop('checked')?0:1].toFixed(3)	//trim numbers in string to 3dp
+		+ "|paper=" + Number.parseFloat(paper_pieces[$("#portrait").prop('checked')?1:0]).toFixed(3) + "," + Number.parseFloat(paper_pieces[$("#portrait").prop('checked')?0:1]).toFixed(3)	//trim numbers in string to 3dp
 		+ "|scale=" + scale
 		+ "|centre=" + sheetCentreLL[1].toFixed(0) + "," + sheetCentreLL[0].toFixed(0)
 		+ "|title=" + escapeTitleText
@@ -2303,6 +2313,8 @@ function getURL(type) {
 	if (power) { url += "|power=yes"; } else { url += "|power=no"; }
 	if (privroads) { url += "|privroads=yes"; } else { url += "|privroads=no"; }
 	if (buildings) { url += "|buildings=yes"; } else { url += "|buildings=no"; }
+	if (benches) { url += "|benches=yes"; } else { url += "|benches=no"; }
+	if (halo) { url += "|halo=yes"; } else { url += "|halo=no"; }
 	if (linear) { url += "|linear=yes"; } else { url += "|linear=no"; }
 	url += "|dpi=" + dpi;
 	url += "|purple=" + overlayColour;
@@ -2507,11 +2519,7 @@ function loadMap(data) {
 		papersize="custom";
 	}
 	$('#papersize').selectmenu("refresh");
-	//if (data.paperorientation == "landscape") {
-		paper_pieces = [sh, sw];
-	//} else {
-	//paper_pieces = [sw, sh]; 
-	//}
+	paper_pieces = [Number.parseFloat(sh), Number.parseFloat(sw)];
 
 	var $paperorientation = $("#" + data.paperorientation);
 	(data.linear == "1" || data.linear == 1)?linear=true:linear=false;
@@ -2958,7 +2966,7 @@ function handleGetPois([query, prefix, srcDescription, orderBy = null, radius, b
 {
 	var arr = wgs84Poly.flatCoordinates;
 	if (isNaN(radius)) { radius = 0; }
-	var url = oom.apiServer + '?data=[out:json][timeout:25];node[' + query + '](poly:\"' + arr[1] + " " + arr[0] + " " + arr[3] + " " + arr[2] + " " + arr[5] + " " + arr[4] + " " + arr[7] + " " + arr[6] + "\");out;";
+	var url = oom.apiServer + '?data=[out:json][timeout:25];' + query + '(poly:\"' + arr[1] + " " + arr[0] + " " + arr[3] + " " + arr[2] + " " + arr[5] + " " + arr[4] + " " + arr[7] + " " + arr[6] + "\");out center;";
 	$.get(url)
 		.done(function (result, textStatus, jqXHR) {
 			var changed = false;
@@ -2968,6 +2976,10 @@ function handleGetPois([query, prefix, srcDescription, orderBy = null, radius, b
 				for (var i = 0; i < result.elements.length; i++) {
 					var dupe = false;
 					var featureList = getSortedControls('c_regular');
+					if (result.elements[i].type != 'node') {	//If way or relation, copy centre lat/lon to node position
+						result.elements[i].lat = result.elements[i].center.lat;
+						result.elements[i].lon = result.elements[i].center.lon;
+					}
 					if (boolTemp) { featureList = featureList.concat(getMarkers()); }  //add in marker layer features if results are going to feat layer.
 					if (featureList.length > 0) //Check for nearby existing controls
 					{

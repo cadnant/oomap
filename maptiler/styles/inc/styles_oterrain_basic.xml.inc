@@ -108,35 +108,59 @@
     <Rule>
         &maxscale_zoom12;
         &minscale_zoom13;
-        <Filter>&major_road; and not &tunnel;</Filter>
-        <LineSymbolizer stroke="&black;" stroke-width="2.6" stroke-linejoin="round" />
+        <Filter>&major_road; and not &tunnel; and not &bridge;</Filter>
+        <LineSymbolizer stroke="&black;" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round"/>
     </Rule>
     <Rule>
         &maxscale_zoom14;
-        <Filter>&major_road; and not &tunnel;</Filter>
-        <LineSymbolizer stroke="&black;" stroke-width="5.2" stroke-linejoin="round" />
+        <Filter>&major_road; and not &tunnel; and not &bridge;</Filter>
+        <LineSymbolizer stroke="&black;" stroke-width="5.2" stroke-linejoin="round" stroke-linecap="round"/>
     </Rule>
     <Rule>
         &maxscale_zoom12;
         &minscale_zoom13;
-        <Filter>&minor_road; and not &tunnel;</Filter>
-        <LineSymbolizer stroke="&black;" stroke-width="2" stroke-linejoin="round" />
+        <Filter>&minor_road; and not &tunnel; and not &bridge;</Filter>
+        <LineSymbolizer stroke="&black;" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
     </Rule>
     <Rule>
         &maxscale_zoom14;
-        <Filter>&minor_road; and not &tunnel;</Filter>
-        <LineSymbolizer stroke="&black;" stroke-width="4" stroke-linejoin="round" />
+        <Filter>&minor_road; and not &tunnel; and not &bridge;</Filter>
+        <LineSymbolizer stroke="&black;" stroke-width="4" stroke-linejoin="round" stroke-linecap="round"/>
     </Rule>
+
+    <Rule>
+        &maxscale_zoom12;
+        &minscale_zoom13;
+        <Filter>&major_road; and &bridge;</Filter>
+        <LineSymbolizer stroke="&black;" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="butt"/>
+    </Rule>
+    <Rule>
+        &maxscale_zoom14;
+        <Filter>&major_road; and &bridge;</Filter>
+        <LineSymbolizer stroke="&black;" stroke-width="5.2" stroke-linejoin="round" stroke-linecap="butt"/>
+    </Rule>
+    <Rule>
+        &maxscale_zoom12;
+        &minscale_zoom13;
+        <Filter>&minor_road; and &bridge;</Filter>
+        <LineSymbolizer stroke="&black;" stroke-width="2" stroke-linejoin="round" stroke-linecap="butt"/>
+    </Rule>
+    <Rule>
+        &maxscale_zoom14;
+        <Filter>&minor_road; and &bridge;</Filter>
+        <LineSymbolizer stroke="&black;" stroke-width="4" stroke-linejoin="round" stroke-linecap="butt"/>
+    </Rule>
+
     <Rule>
        &maxscale_zoom12;
        &minscale_zoom13;
-       <Filter>&railway; and not &tunnel; and &rail; ='yes'</Filter>
-      <LineSymbolizer stroke="&black;" stroke-width="1.5" stroke-linejoin="round" />
+       <Filter>&railway; and not &tunnel; and &rail; ='yes' </Filter>
+      <LineSymbolizer stroke="&black;" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="butt"/>
     </Rule>
     <Rule>
         &maxscale_zoom14;
         <Filter>&railway; and not &tunnel; and &rail; ='yes'</Filter>
-        <LineSymbolizer stroke="&black;" stroke-width="3" stroke-linejoin="round" />
+        <LineSymbolizer stroke="&black;" stroke-width="3" stroke-linejoin="round" stroke-linecap="butt"/>
     </Rule>
 </Style>
 
@@ -638,18 +662,18 @@
     <Rule>
         &maxscale_zoom15;
         &minscale_zoom15;
-        <Filter>[amenity]='bench' or [leisure]='picnic_table' or [amenity]='waste_basket' or [amenity]='recycling'</Filter>
+        <Filter>&benches; = 'yes' and ([amenity]='bench' or [leisure]='picnic_table' or [amenity]='waste_basket' or [amenity]='recycling')</Filter>
         <PointSymbolizer file="&symbols;/cross.svg" allow-overlap="true" transform="scale(0.5,0.5)" />
     </Rule>
     <Rule>
         &maxscale_zoom16;
         &minscale_zoom16;
-        <Filter>[amenity]='bench' or [leisure]='picnic_table' or [amenity]='waste_basket' or [amenity]='recycling'</Filter>
+        <Filter>&benches; = 'yes' and ([amenity]='bench' or [leisure]='picnic_table' or [amenity]='waste_basket' or [amenity]='recycling')</Filter>
         <PointSymbolizer file="&symbols;/cross.svg" allow-overlap="true" transform="scale(0.65,0.65)" />
     </Rule>
     <Rule>
         &maxscale_zoom17;
-        <Filter>[amenity]='bench' or [leisure]='picnic_table' or [amenity]='waste_basket' or [amenity]='recycling'</Filter>
+        <Filter>&benches; = 'yes' and ([amenity]='bench' or [leisure]='picnic_table' or [amenity]='waste_basket' or [amenity]='recycling')</Filter>
         <PointSymbolizer file="&symbols;/cross.svg" allow-overlap="true" transform="scale(0.8,0.8)" />
     </Rule>
     <Rule>

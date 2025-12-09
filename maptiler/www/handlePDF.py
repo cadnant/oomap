@@ -460,13 +460,13 @@ def createImage(path, fileformat):
     ctx.translate(-EXTENT_W*S2P/2,-EXTENT_H*S2P/2)  # set origin to NW corner
     ctx.select_font_face("Arial", cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_NORMAL)
     ctx.set_font_size(CTEXT_S*S2P)
-    
+    ctx.set_line_width(SC_T*S2P * 1.5)
+    ctx.set_line_join(cairo.LINE_JOIN_ROUND)
+    ctx.set_source_rgb(1,1,1)
+    ctx.set_operator(cairo.Operator.SOURCE)    
+
     #start and finish halos, if selected
     if slon != 0 and slat != 0 and halo == "yes":
-        ctx.set_line_width(SC_T*S2P * 1.5)
-        ctx.set_line_join(cairo.LINE_JOIN_ROUND)
-        ctx.set_source_rgb(1,1,1)
-        ctx.set_operator(cairo.Operator.SOURCE)
         ctx.save()
         ctx.translate((slon-mapWLon)*EXTENT_W*S2P/(mapELon-mapWLon), (mapNLat-slat)*EXTENT_H*S2P/(mapNLat-mapSLat))
         startRot = 0   #rotation of start triangle - if linear course and at least 1 control

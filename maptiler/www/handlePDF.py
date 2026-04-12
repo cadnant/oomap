@@ -238,24 +238,66 @@ def createImage(path, fileformat):
     # If stylefile exists, data has been recently fetched - can use existing DB tables.
     # Recreate stylefile regardless - might need a new style on existing data.
 
+    datasource=p.get('slice', 'yes')
+    tmpname = "/tmp/" + tmpid + ".osm"
+    source_metadata=""
+
     if not os.path.isfile(styleFile):
         headers = {"Accept-Charset": "utf-8;q=0.7,*;q=0.7",
-          "User-Agent" : "OpenOrienteeringMap;oomap@dna-software.co.uk"}
-        api2 = overpass.API(endpoint = "https://overpass.kumi.systems/api/interpreter", timeout=120, headers = headers)
-        api = overpass.API(endpoint = "https://overpass-api.de/api/interpreter", timeout=120, headers = headers)
-        MapQuery = overpass.MapQuery(tbbox.miny,tbbox.minx,tbbox.maxy,tbbox.maxx)
-        try:
-            response = api.get(MapQuery, responseformat="xml")
-        except: #if first api fails try the second
+        "User-Agent" : "OpenOrienteeringMap;oomap@dna-software.co.uk"}
+        if(datasource == 'no'):
+            api2 = overpass.API(endpoint = "https://overpass.private.coffee/api/interpreter", timeout=120, headers = headers)
+            api = overpass.API(endpoint = "https://overpass-api.de/api/interpreter", timeout=120, headers = headers)
+            MapQuery = overpass.MapQuery(tbbox.miny,tbbox.minx,tbbox.maxy,tbbox.maxx)
             try:
-                response = api2.get(MapQuery, responseformat="xml")
-            except Exception as e:
-                return "Overpass API error: " + type(e).__name__ + ", " + str(e) + "\n" + \
-                    "Use the following ID to recover your map: " + tmpid[1:]
+                response = api.get(MapQuery, responseformat="xml")
+                source_metadata = "https://overpass-api.de/api/interpreter"
+            except: #if first api fails try the second
+                try:
+                    response = api2.get(MapQuery, responseformat="xml")
+                    source_metadata = "https://overpass.private.coffee/api/interpreter"
+                except Exception as e:
+                    return "Overpass API error: " + type(e).__name__ + ", " + str(e) + "\n" + \
+                        "Use the following ID to recover your map: " + tmpid[1:]
 
-        tmpname = "/tmp/" + tmpid + ".osm"
-        with open(tmpname,mode="wb") as f:
-               f.write(response.encode("utf-8"))
+            with open(tmpname,mode="wb") as f:
+                f.write(response.encode("utf-8"))
+        else:
+            BASE_URL = "https://slice.openstreetmap.us/api"
+            source_metadata = BASE_URL
+
+            # Step 1: Submit the extract task
+            payload = {
+                "Name": "none",
+                "RegionType": "bbox",
+                "RegionData": [tbbox.miny, tbbox.minx, tbbox.maxy, tbbox.maxx]
+            }
+            try:
+                post_response = requests.post(BASE_URL + "/", json=payload, headers=headers, timeout=30)
+                post_response.raise_for_status()
+                task_uuid = post_response.text.strip()
+
+                # Step 2: Poll until the task is complete
+                while True:
+                    status_response = requests.get(f"{BASE_URL}/{task_uuid}", timeout=30)
+                    status_response.raise_for_status()
+                    status = status_response.json()
+
+                    if status.get("Complete"):
+                        break
+                    time.sleep(5)
+
+                # Step 3: Download the resulting .osm.pbf file
+                file_url = f"https://slice.openstreetmap.us/files/{task_uuid}.osm.pbf"
+                file_response = requests.get(file_url, timeout=120)
+                file_response.raise_for_status()
+                pbf_data = file_response.content  # .osm.pbf binary content
+                tmpname = tmpname + ".pbf"
+                with open(tmpname,mode="wb") as f:
+                    f.write(pbf_data)
+            except Exception as e:
+                return "Slice API error: " + type(e).__name__ + ", " + str(e) + "\n" + \
+                    "Use the following ID to recover your map: " + tmpid[1:]            
 
         # Populate Postgres db with data, using tables with temporary id prefix
         os.system("osm2pgsql -d gis --hstore --multi-geometry --number-processes 1" + \
@@ -263,7 +305,7 @@ def createImage(path, fileformat):
             " --tag-transform-script /home/osm/openstreetmap-carto/openstreetmap-carto.lua" + \
             " --style /home/osm/openstreetmap-carto/openstreetmap-carto.style -C 200 -U osm "+ tmpname)
 
-        os.unlink(tmpname)  #Finished with temporary osm data file - delete.
+        # os.unlink(tmpname)  #Finished with temporary osm data file - delete.
 
         if p['contour'] == "SRTM" or p['contour'] == "COPE":
             #Now get contours using phyghtmap:
@@ -306,6 +348,7 @@ def createImage(path, fileformat):
     else:   # If SRTM or COPE contours, still need to point to correct contour table for reused data so:
         if p['contour'] == "SRTM" or p['contour'] == "COPE":
             contour_table = tmpid + "_srtm_line"
+        source_metadata = "Existing data"
 
     # Need a custom Mapnik style file to find tables with temo id prefix.
     # Therefore inject "prefix" entity into appropriate base style definition and save using temp id as name.
@@ -843,17 +886,14 @@ def createImage(path, fileformat):
         # Add Geospatial PDF metadata
         map_bounds = (MAP_WM/PAPER_W, (PAPER_H-MAP_SM)/PAPER_H, MAP_WM/PAPER_W, MAP_NM/PAPER_H, (PAPER_W-MAP_EM)/PAPER_W, MAP_NM/PAPER_H, (PAPER_W-MAP_EM)/PAPER_W, (PAPER_H-MAP_SM)/PAPER_H)
         file2 = tempfile.NamedTemporaryFile()
-        file = add_geospatial_pdf_header(map, file, file2, map_bounds, pagePoly, p, path, epsg = 3857)
+        file = add_geospatial_pdf_header(map, file, file2, map_bounds, pagePoly, p, path, source_metadata, epsg = 3857)
 
     #Delete temporary style file and postgres tables (everything beginning with "h"):
     #BUT - don't delete here as may be needed for related query.  Periodically clean out with cron job instead
-    #os.unlink(styleFile)
-    #dropTables = 'psql -U osm gis -t -c "select \'drop table \\"\' || tablename || \'\\" cascade;\' from pg_tables where schemaname = \'public\' and tablename like \'h%\'"  | psql -U osm gis'
-    #os.system(dropTables)
 
     return file
 
-def add_geospatial_pdf_header(m, f, f2, map_bounds, poly, p, path, epsg=None, wkt=None):
+def add_geospatial_pdf_header(m, f, f2, map_bounds, poly, p, path, source_metadata, epsg=None, wkt=None):
         """
         Adds geospatial PDF information to the PDF file as per:
             Adobe® Supplement to the ISO 32000 PDF specification
@@ -918,7 +958,8 @@ def add_geospatial_pdf_header(m, f, f2, map_bounds, poly, p, path, epsg=None, wk
                 "/MapID": p.get('mapid', 'new'),
                 "/Producer": "OpenOrienteeringMap, " + web_root,
                 "/CreationDate": datetime.datetime.now().strftime("D:%Y%m%d%H%M%S+00'00'"),
-                "/URL": web_root + "render/pdf/?" + path
+                "/URL": web_root + "render/pdf/?" + path,
+                "/MapData": source_metadata
             }
         )
 
@@ -995,4 +1036,4 @@ def test(path):
 
 if __name__ == '__main__':
     #test("style=streeto-COPE-10|paper=0.297,0.210|scale=10000|centre=6801767,-86381|title=ÅFurzton%20%28Milton%20Keynes%29|club=hh|id=6043c1a44cc97|start=6801344,-86261|crosses=|cps=45,6801960,-86749,90,6802960,-88000|controls=10,45,6801960,-86749,11,45,6802104,-85841,12,45,6802080,-85210,13,45,6802935,-86911,14,45,6801793,-87307,15,45,6802777,-86285,16,45,6801244,-85573,17,45,6801382,-86968,18,45,6802357,-87050,19,45,6802562,-87288,20,45,6802868,-87303,21,45,6802204,-86342,22,45,6803011,-86008,23,45,6802600,-85081,24,45,6801903,-84580,25,45,6801024,-85382,26,45,6800718,-86400,27,45,6801139,-87112,28,45,6801717,-86519,29,45,6801736,-85549,30,45,6801769,-88206,31,45,6802161,-87795,32,45,6800919,-87618,33,45,6801989,-86099,34,45,6800546,-85621,35,45,6801631,-84795,36,45,6802309,-84403,37,45,6803126,-86223,38,45,6802061,-87174,39,45,6801674,-87828,40,45,6802567,-87962,41,45,6800627,-86772,42,45,6802080,-84250,43,45,6803212,-85320,44,45,6801091,-88631|rotation=0.2|linear=no")
-    test("style=oterrain-SRTM-5|paper=0.297,0.210|scale=10000|centre=6808314,-25707|title=OpenOrienteeringMap|eventdate=|club=hh|id=66533f1db72fd|start=6808175,-25491|finish=6808234,-26035|crosses=6808385,-25093,6808069,-24972,6808440,-26209|cps=163,6808590,-25710,73,6808087,-26772|controls=1,45,6809268,-25747,2,45,6807742,-25506|rotation=0.2915|grid=yes|rail=yes|walls=yes|trees=yes|hedges=yes|drives=no|fences=yes|sidewalks=no|schools=no|power=yes|privroads=yes|linear=no|dpi=75|purple=EE11FF")
+    test("style=oterrain-SRTM-5|paper=0.297,0.210|scale=10000|centre=6808314,-25707|title=OpenOrienteeringMap|eventdate=|club=hh|id=66533f1db72fj|start=6808175,-25491|finish=6808234,-26035|crosses=6808385,-25093,6808069,-24972,6808440,-26209|cps=163,6808590,-25710,73,6808087,-26772|controls=1,45,6809268,-25747,2,45,6807742,-25506|rotation=0.2915|grid=yes|rail=yes|walls=yes|trees=yes|hedges=yes|drives=no|fences=yes|sidewalks=no|schools=no|power=yes|privroads=yes|linear=no|dpi=75|purple=EE11FF|slice=yes")

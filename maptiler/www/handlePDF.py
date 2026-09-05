@@ -238,66 +238,83 @@ def createImage(path, fileformat):
     # If stylefile exists, data has been recently fetched - can use existing DB tables.
     # Recreate stylefile regardless - might need a new style on existing data.
 
-    datasource=p.get('slice', 'yes')
+    datasource = p.get('slice', 'no')
     tmpname = "/tmp/" + tmpid + ".osm"
-    source_metadata=""
+    source_metadata = ""
 
     if not os.path.isfile(styleFile):
-        headers = {"Accept-Charset": "utf-8;q=0.7,*;q=0.7",
-        "User-Agent" : "OpenOrienteeringMap;oomap@dna-software.co.uk"}
-        if(datasource == 'no'):
-            api2 = overpass.API(endpoint = "https://overpass.private.coffee/api/interpreter", timeout=120, headers = headers)
-            api = overpass.API(endpoint = "https://overpass-api.de/api/interpreter", timeout=120, headers = headers)
-            MapQuery = overpass.MapQuery(tbbox.miny,tbbox.minx,tbbox.maxy,tbbox.maxx)
-            try:
-                response = api.get(MapQuery, responseformat="xml")
-                source_metadata = "https://overpass-api.de/api/interpreter"
-            except: #if first api fails try the second
-                try:
-                    response = api2.get(MapQuery, responseformat="xml")
-                    source_metadata = "https://overpass.private.coffee/api/interpreter"
-                except Exception as e:
-                    return "Overpass API error: " + type(e).__name__ + ", " + str(e) + "\n" + \
-                        "Use the following ID to recover your map: " + tmpid[1:]
+        headers = {
+            "Accept-Charset": "utf-8;q=0.7,*;q=0.7",
+            "User-Agent": "OpenOrienteeringMap;oomap@dna-software.co.uk",
+            "Referer": "https://oomap.dna-software.co.uk/"
+        }
 
-            with open(tmpname,mode="wb") as f:
+        def fetch_via_overpass():
+            """Returns (tmpname, source_metadata) or raises."""
+            api = overpass.API(endpoint="https://overpass-api.de/api/interpreter",
+                                timeout=120, headers=headers)
+            MapQuery = overpass.MapQuery(tbbox.miny, tbbox.minx, tbbox.maxy, tbbox.maxx)
+            response = api.get(MapQuery, responseformat="xml")
+
+            out_name = "/tmp/" + tmpid + ".osm"
+            with open(out_name, mode="wb") as f:
                 f.write(response.encode("utf-8"))
-        else:
-            BASE_URL = "https://slice.openstreetmap.us/api"
-            source_metadata = BASE_URL
+            return out_name, "https://tile.tracestrack.com/overpass"
 
-            # Step 1: Submit the extract task
+        def fetch_via_slice():
+            """Returns (tmpname, source_metadata) or raises."""
+            BASE_URL = "https://slice.openstreetmap.us/api"
+
             payload = {
                 "Name": "none",
                 "RegionType": "bbox",
                 "RegionData": [tbbox.miny, tbbox.minx, tbbox.maxy, tbbox.maxx]
             }
+
+            post_response = requests.post(BASE_URL + "/", json=payload, headers=headers, timeout=30)
+            post_response.raise_for_status()
+            task_uuid = post_response.text.strip()
+
+            # Poll until the task is complete
+            while True:
+                status_response = requests.get(f"{BASE_URL}/{task_uuid}", timeout=30)
+                status_response.raise_for_status()
+                status = status_response.json()
+
+                if status.get("Complete"):
+                    break
+                time.sleep(5)
+
+            # Download the resulting .osm.pbf file
+            file_url = f"https://slice.openstreetmap.us/files/{task_uuid}.osm.pbf"
+            file_response = requests.get(file_url, timeout=120)
+            file_response.raise_for_status()
+            pbf_data = file_response.content
+
+            out_name = "/tmp/" + tmpid + ".osm.pbf"
+            with open(out_name, mode="wb") as f:
+                f.write(pbf_data)
+            return out_name, BASE_URL
+
+        # Decide order based on preference, but always try the other one on failure
+        if datasource == 'no':
+            attempts = [("overpass", fetch_via_overpass), ("slice", fetch_via_slice)]
+        else:
+            attempts = [("slice", fetch_via_slice), ("overpass", fetch_via_overpass)]
+
+        errors = []
+        success = False
+        for name, fn in attempts:
             try:
-                post_response = requests.post(BASE_URL + "/", json=payload, headers=headers, timeout=30)
-                post_response.raise_for_status()
-                task_uuid = post_response.text.strip()
-
-                # Step 2: Poll until the task is complete
-                while True:
-                    status_response = requests.get(f"{BASE_URL}/{task_uuid}", timeout=30)
-                    status_response.raise_for_status()
-                    status = status_response.json()
-
-                    if status.get("Complete"):
-                        break
-                    time.sleep(5)
-
-                # Step 3: Download the resulting .osm.pbf file
-                file_url = f"https://slice.openstreetmap.us/files/{task_uuid}.osm.pbf"
-                file_response = requests.get(file_url, timeout=120)
-                file_response.raise_for_status()
-                pbf_data = file_response.content  # .osm.pbf binary content
-                tmpname = tmpname + ".pbf"
-                with open(tmpname,mode="wb") as f:
-                    f.write(pbf_data)
+                tmpname, source_metadata = fn()
+                success = True
+                break
             except Exception as e:
-                return "Slice API error: " + type(e).__name__ + ", " + str(e) + "\n" + \
-                    "Use the following ID to recover your map: " + tmpid[1:]            
+                errors.append(f"{name} error: {type(e).__name__}, {str(e)}")
+
+        if not success:
+            return "\n".join(errors) + "\n" + \
+                "Use the following ID to recover your map: " + tmpid[1:]         
 
         # Populate Postgres db with data, using tables with temporary id prefix
         os.system("osm2pgsql -d gis --hstore --multi-geometry --number-processes 1" + \
@@ -380,7 +397,7 @@ def createImage(path, fileformat):
         "\n<!ENTITY box3857 \"" + polyString2 + "\">" + \
         "\n<!ENTITY rotation \"" + str(rotation * 180/math.pi) + "\">" + \
         "\n<!ENTITY magn \"" + magn + "\">"
-    searchstring="\%settings;"
+    searchstring="%settings;"
     styleString = re.sub(searchstring,insertstring,styleString)
 
     with open(styleFile, mode="w") as f:

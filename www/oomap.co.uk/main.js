@@ -40,8 +40,8 @@ oom.prefix = "/tile/";
 oom.defaultMapTitle = "OpenOrienteeringMap";
 oom.defaultRaceDescription = "Race instructions";
 
-//oom.apiServer = "https://overpass-api.de/api/interpreter";
-oom.apiServer = "https://overpass.private.coffee/api/interpreter";
+oom.apiServer = "https://overpass-api.de/api/interpreter";
+//oom.apiServer = "https://overpass.private.coffee/api/interpreter";
 
 var currentID = null;
 var currentNumber = null;
